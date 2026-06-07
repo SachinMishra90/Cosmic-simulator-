@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vedic Cosmic Simulator (Phase 1)</title>
+    <title>Vedic Cosmic Simulator (Phase 2)</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #000; font-family: sans-serif; }
         #canvas-container { width: 100vw; height: 100vh; }
@@ -17,6 +17,7 @@
         #info {
             position: absolute; top: 10px; left: 10px; color: #fff;
             background: rgba(0,0,0,0.7); padding: 10px; border-radius: 5px; border-left: 3px solid #ffa500;
+            font-size: 14px; max-width: 300px;
         }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -25,122 +26,127 @@
 <body>
 
     <div id="info">
-        <h3>वैदिक कॉस्मिक सिमुलेटर (प्रोटोटाइप)</h3>
-        <p>🖱️ माउस से ड्रैग करके ब्रह्मांड को घुमाएं (Zoom In/Out करें)</p>
-        <p>अक्ष (Axis): ध्रुव तारा (ऊपर) ↔️ मेरु पर्वत (केंद्र)</p>
+        <h3>वैदिक कॉस्मिक सिमुलेटर (फेज 2)</h3>
+        <p>🛸 **नक्षत्र बेल्ट:** ध्रुव अक्ष के चारों तरफ 27 नक्षत्रों का चक्र एक्टिव हो गया है।</p>
+        <p id="nakshatraInfo">वर्तमान नक्षत्र: गणना चालू...</p>
     </div>
 
     <div id="canvas-container"></div>
 
     <div id="controls">
-        <label id="timeLabel">काल चक्र (सूर्य/चंद्रमा की स्थिति): 0°</label>
+        <label id="timeLabel">काल चक्र (सूर्य का कोण): 0°</label>
         <input type="range" id="timeSlider" min="0" max="360" value="0">
     </div>
 
     <script>
-        // 1. सीन, कैमरा और रेंडरर सेट करना
+        // 1. बुनियादी सेटअप
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.getElementById('canvas-container').appendChild(renderer.domElement);
 
-        // कैमरा पोजीशन और माउस कंट्रोल
-        camera.position.set(0, 20, 35);
+        camera.position.set(0, 25, 40);
         const controls = new THREE.OrbitControls(camera, renderer.domElement);
 
-        // 2. ब्रह्मांड का बैकग्राउंड (तारे)
+        // 2. स्टारफील्ड (अंतरिक्ष के तारे)
         const starsGeometry = new THREE.BufferGeometry();
-        const starsCount = 2000;
-        const starPositions = new Float32Array(starsCount * 3);
-        for(let i=0; i<starsCount*3; i++) {
-            starPositions[i] = (Math.random() - 0.5) * 200;
-        }
+        const starPositions = new Float32Array(2000 * 3);
+        for(let i=0; i<2000*3; i++) starPositions[i] = (Math.random() - 0.5) * 200;
         starsGeometry.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
-        const starsMaterial = new THREE.PointsMaterial({ color: 0xffffff, size: 0.5 });
-        const starField = new THREE.Points(starsGeometry, starsMaterial);
+        const starField = new THREE.Points(starsGeometry, new THREE.PointsMaterial({ color: 0xffffff, size: 0.4 }));
         scene.add(starField);
 
-        // 3. केंद्र में पृथ्वी / मेरु (Center Pivot)
-        const earthGeo = new THREE.SphereGeometry(4, 32, 32);
-        const earthMat = new THREE.MeshBasicMaterial({ color: 0x2233ff, wireframe: true }); // अभी ग्रिड लुक दिया है
-        const earth = new THREE.Mesh(earthGeo, earthMat);
+        // 3. केंद्रीय पृथ्वी / मेरु धुरी
+        const earth = new THREE.Mesh(new THREE.SphereGeometry(4, 32, 32), new THREE.MeshBasicMaterial({ color: 0x2233ff, wireframe: true }));
         scene.add(earth);
 
-        // 4. ध्रुव अक्ष (Polaris Cosmic Axis) - वर्टिकल लाइन
-        const points = [];
-        points.push(new THREE.Vector3(0, -15, 0));
-        points.push(new THREE.Vector3(0, 18, 0));
-        const axisGeo = new THREE.BufferGeometry().setFromPoints(points);
-        const axisMat = new THREE.LineBasicMaterial({ color: 0xff00ff });
-        const cosmicAxis = new THREE.Line(axisGeo, axisMat);
-        scene.add(cosmicAxis);
+        // ध्रुव अक्ष line
+        const points = [new THREE.Vector3(0, -15, 0), new THREE.Vector3(0, 20, 0)];
+        scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), new THREE.LineBasicMaterial({ color: 0xff00ff })));
 
-        // ध्रुव तारा (Polaris) - टॉप पर चमकता हुआ
-        const polarisGeo = new THREE.SphereGeometry(0.5, 16, 16);
-        const polarisMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-        const polaris = new THREE.Mesh(polarisGeo, polarisMat);
-        polaris.position.set(0, 18, 0);
+        // ध्रुव तारा (Polaris)
+        const polaris = new THREE.Mesh(new THREE.SphereGeometry(0.6, 16, 16), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+        polaris.position.set(0, 20, 0);
         scene.add(polaris);
 
-        // 5. सूर्य (Sun Object) और उसका ऑर्बिट
-        const sunGeo = new THREE.SphereGeometry(1.2, 32, 32);
-        const sunMat = new THREE.MeshBasicMaterial({ color: 0xffaa00 });
-        const sun = new THREE.Mesh(sunGeo, sunMat);
-        scene.add(sun);
+        // 4. सूर्य और चंद्रमा
+        const sun = new THREE.Mesh(new THREE.SphereGeometry(1.2, 32, 32), new THREE.MeshBasicMaterial({ color: 0xffaa00 }));
+        const moon = new THREE.Mesh(new THREE.SphereGeometry(0.6, 32, 32), new THREE.MeshBasicMaterial({ color: 0xcccccc }));
+        scene.add(sun, moon);
 
-        // चंद्रमा (Moon Object)
-        const moonGeo = new THREE.SphereGeometry(0.6, 32, 32);
-        const moonMat = new THREE.MeshBasicMaterial({ color: 0xcccccc });
-        const moon = new THREE.Mesh(moonGeo, moonMat);
-        scene.add(moon);
+        // 5. 27 नक्षत्रों का डेटाबेस (वैदिक चक्र)
+        const nakshatras = [
+            "अश्विनी", "भरणी", "कृत्तिका", "रोहिणी", "मृगशिरा", "आर्द्रा", "पुनर्वसु", "पुष्य", "आश्लेषा",
+            "मघा", "पूर्वाफाल्गुनी", "उत्तराफाल्गुनी", "हस्त", "चित्रा", "स्वाती", "विशाखा", "अनुराधा", "ज्येष्ठा",
+            "मूल", "पूर्वाषाढ़ा", "उत्तराषाढ़ा", "श्रवण", "धनिष्ठा", "शतभिषा", "पूर्वाभाद्रपद", "उत्तराभाद्रपद", "रेवती"
+        ];
 
-        // प्रकाश (Light Effect)
-        const light = new THREE.PointLight(0xffffff, 2, 100);
-        scene.add(light);
+        // 3D स्पेस में नक्षत्रों की रिंग बनाना (The Zodiac Belt)
+        const beltRadius = 18; // सूर्य के मार्ग की दूरी
+        const ringGeometry = new THREE.RingGeometry(beltRadius - 0.1, beltRadius + 0.1, 64);
+        const ringMaterial = new THREE.MeshBasicMaterial({ color: 0x444444, side: THREE.DoubleSide });
+        const nakshatraRing = new THREE.Mesh(ringGeometry, ringMaterial);
+        nakshatraRing.rotation.x = Math.PI / 2; // रिंग को हॉरिजॉन्टल (समतल) करना
+        scene.add(nakshatraRing);
 
-        // 6. स्लाइडर और रीयल-टाइम मूवमेंट का लॉजिक
+        // हर नक्षत्र के स्थान पर एक छोटा चमकता तारा (Node) बनाना
+        nakshatras.forEach((name, i) => {
+            const angle = (i / 27) * Math.PI * 2;
+            const starGeo = new THREE.SphereGeometry(0.2, 8, 8);
+            const starMat = new THREE.MeshBasicMaterial({ color: 0x00ffff });
+            const nStar = new THREE.Mesh(starGeo, starMat);
+            
+            nStar.position.x = beltRadius * Math.cos(angle);
+            nStar.position.z = beltRadius * Math.sin(angle);
+            nStar.position.y = 0; // बेस प्लेन
+            scene.add(nStar);
+        });
+
+        // 6. रीयल-टाइम मूवमेंट और स्लाइडर लॉजिक
         const slider = document.getElementById('timeSlider');
         const label = document.getElementById('timeLabel');
+        const nakshatraInfo = document.getElementById('nakshatraInfo');
 
         function updatePositions(degrees) {
             const radians = (degrees * Math.PI) / 180;
             
-            // सूर्य की परिक्रमा (मेरु अक्ष के चारों तरफ)
-            const sunRadius = 18;
-            sun.position.x = sunRadius * Math.cos(radians);
-            sun.position.z = sunRadius * Math.sin(radians);
-            // पुराणों के अनुसार सर्पिलाकार गति (ऊपर-नीचे होना) का हल्का इफ़ेक्ट
-            sun.position.y = 4 * Math.sin(radians * 2); 
+            // सूर्य की स्थिति (Ayanam/सर्पिलाकार गति के साथ)
+            sun.position.x = beltRadius * Math.cos(radians);
+            sun.position.z = beltRadius * Math.sin(radians);
+            sun.position.y = 4 * Math.sin(radians); // उत्तरायण और दक्षिणायन का झुकाव
 
-            // चंद्रमा की परिक्रमा (अलग रेडियस और थोड़ी अलग गति पर)
+            // चंद्रमा की स्थिति (तेज गति से चक्र काटना)
             const moonRadius = 12;
-            const moonRadians = radians * 1.5; // चंद्रमा की गति अलग दिखाने के लिए
+            const moonRadians = radians * 13.36; // चंद्रमा की वास्तविक गति का अनुपात (सूर्य से ~13 गुना तेज)
             moon.position.x = moonRadius * Math.cos(moonRadians);
             moon.position.z = moonRadius * Math.sin(moonRadians);
             moon.position.y = 2 * Math.cos(moonRadians);
 
-            label.innerText = `काल चक्र (सूर्य/चंद्रमा का कोण): ${degrees}°`;
+            // यह गणना करना कि सूर्य इस समय किस नक्षत्र में है
+            const nakshatraIndex = Math.floor((degrees / 360) * 27) % 27;
+            const currentNakshatra = nakshatras[nakshatraIndex];
+
+            label.innerText = `काल चक्र (सूर्य का कोण): ${degrees}°`;
+            nakshatraInfo.innerHTML = `🌞 सूर्य अभी <b>${currentNakshatra}</b> नक्षत्र में है।`;
         }
 
-        // शुरुआती पोजीशन सेट करना
+        // इनिशियल लोड
         updatePositions(0);
 
-        // स्लाइडर इवेंट लिस्टनर
         slider.addEventListener('input', (e) => {
             updatePositions(e.target.value);
         });
 
-        // 7. एनिमेशन लूप (ताकि सीन लाइव रेंडर होता रहे)
+        // 7. एनीमेशन लूप
         function animate() {
             requestAnimationFrame(animate);
-            earth.rotation.y += 0.002; // पृथ्वी का धीमा घूर्णन
+            earth.rotation.y += 0.002; // पृथ्वी का धीमा घूमना
             controls.update();
             renderer.render(scene, camera);
         }
         animate();
 
-        // स्क्रीन साइज बदलने पर एडजस्ट करना
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();

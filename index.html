@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vedic Cosmic Simulator (Phase 8 - Real Time Engine)</title>
+    <title>Vedic Cosmic Simulator (Phase 9 - Real Time Clock Sync)</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #000; font-family: sans-serif; }
         #canvas-container { width: 100vw; height: 100vh; }
@@ -12,11 +12,6 @@
             background: rgba(0, 0, 0, 0.85); padding: 15px 25px; border-radius: 10px;
             box-shadow: 0 0 20px rgba(255,165,0,0.6); border: 1px solid #ffa500;
             color: white; width: 85%; max-width: 650px; text-align: center;
-        }
-        input[type=range] { width: 70%; margin-top: 10px; accent-color: #ffa500; }
-        .btn {
-            background: #ffa500; border: none; color: black; padding: 5px 15px;
-            font-weight: bold; border-radius: 4px; cursor: pointer; margin-right: 10px;
         }
         #info {
             position: absolute; top: 10px; left: 10px; color: #fff;
@@ -28,6 +23,12 @@
             background: rgba(0,0,0,0.7); padding: 3px 6px; border-radius: 3px;
             border: 1px solid #ffaa00; pointer-events: none; display: none;
         }
+        .live-badge {
+            background: red; color: white; padding: 2px 6px; border-radius: 3px;
+            font-size: 10px; font-weight: bold; display: inline-block; margin-bottom: 5px;
+            animation: blink 1.5s infinite;
+        }
+        @keyframes blink { 0% {opacity: 1;} 50% {opacity: 0.4;} 100% {opacity: 1;} }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
@@ -35,36 +36,37 @@
 <body>
 
     <div id="info">
-        <h3>वैदिक ब्रह्मांड इंजन (फेज 8 - लाइव)</h3>
-        <p>🧭 **दिशा निर्धारण:** उत्तर (ध्रुव अक्ष), दक्षिण (संयमनी यमलोक), पूर्व (देवधानी), पश्चिम (निम्लोचनी)।</p>
+        <span class="live-badge">🔴 LIVE TIME SYNC</span>
+        <h3>वैदिक ब्रह्मांड क्लॉक (फेज 9)</h3>
+        <p id="liveClock" style="color: #ffa500; font-weight: bold; font-size: 15px; margin: 5px 0;"></p>
+        <p id="ayanaState" style="color: #00ffaa; font-weight: bold;"></p>
         <hr style="border-color:#555;">
         <p id="nakshatraInfo">गणना चालू...</p>
         <p id="yojanaSpeed" style="color: #00ffff;"></p>
         <p id="timezoneInfo" style="color: #ffaa00;"></p>
     </div>
 
-    <div id="label-devdhani" class="puri-label">🌅 पूर्व: देवधानी (इंद्रलोक)</div>
-    <div id="label-samyamani" class="puri-label">🔴 दक्षिण: संयमनी (यमलोक)</div>
-    <div id="label-nimlochani" class="puri-label">🌇 पश्चिम: निम्लोचनी (वरुणलोक)</div>
-    <div id="label-vibhavari" class="puri-label">🌙 उत्तर: विभावरी (चंद्रलोक)</div>
+    <div id="label-devdhani" class="puri-label"> Devdhani (East)</div>
+    <div id="label-samyamani" class="puri-label">🔴 Samyamani (South)</div>
+    <div id="label-nimlochani" class="puri-label"> Nimlochani (West)</div>
+    <div id="label-vibhavari" class="puri-label"> Vibhavari (North)</div>
 
     <div id="canvas-container"></div>
 
     <div id="controls">
-        <button id="playBtn" class="btn">⏸️ Pause</button>
-        <input type="range" id="timeSlider" min="0" max="360" value="0">
-        <div id="angleLabel" style="margin-top:5px; font-size:12px;">कोण: 0°</div>
+        <div style="font-size: 14px; font-weight: bold; color: #ffa500;">यह मॉडल आपकी वास्तविक घड़ी और तारीख के अनुसार चल रहा है</div>
+        <div id="angleLabel" style="margin-top:5px; font-size:12px; color:#aaa;">सूर्य का वास्तविक खगोलीय कोण गणना...</div>
     </div>
 
     <script>
-        // 1. Core Setup
+        // 1. Scene & Camera Setup
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.getElementById('canvas-container').appendChild(renderer.domElement);
 
-        camera.position.set(0, 50, 80);
+        camera.position.set(0, 55, 85);
         const controls = new THREE.OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
 
@@ -75,25 +77,25 @@
         starsGeom.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
         scene.add(new THREE.Points(starsGeom, new THREE.PointsMaterial({ color: 0xffffff, size: 0.25 })));
 
-        // 3. Earth Map (Geographic Center)
+        // 3. Central Geographic Earth Map
         const textureLoader = new THREE.TextureLoader();
         const earthTex = textureLoader.load('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_atmos_2048.jpg');
         const earth = new THREE.Mesh(new THREE.SphereGeometry(4, 32, 32), new THREE.MeshBasicMaterial({ map: earthTex }));
-        earth.rotation.y = Math.PI;
+        earth.rotation.y = Math.PI; 
         scene.add(earth);
 
         const meruCenterNode = new THREE.Vector3(0, 4, 0);
         const polaris = new THREE.Mesh(new THREE.SphereGeometry(0.8, 16, 16), new THREE.MeshBasicMaterial({ color: 0xffffff }));
-        polaris.position.set(0, 42, 0); // North Celestial Pole
+        polaris.position.set(0, 45, 0); // Cosmic Tail Anchor
         scene.add(polaris);
 
-        // 4. Directional System / 4 Puris
-        const purisRadius = 18;
+        // 4. Puranic 4 Puris Setup
+        const purisRadius = 20;
         const purisHeight = 1.0;
 
         const purisData = [
             { id: "devdhani", pos: new THREE.Vector3(purisRadius, purisHeight, 0), color: 0x00ffff },      // East
-            { id: "samyamani", pos: new THREE.Vector3(0, purisHeight, purisRadius), color: 0xff3333 },     // South (Yam Lok)
+            { id: "samyamani", pos: new THREE.Vector3(0, purisHeight, purisRadius), color: 0xff3333 },     // South
             { id: "nimlochani", pos: new THREE.Vector3(-purisRadius, purisHeight, 0), color: 0x00ff00 },    // West
             { id: "vibhavari", pos: new THREE.Vector3(0, purisHeight, -purisRadius), color: 0xffaa00 }     // North
         ];
@@ -103,20 +105,19 @@
             marker.position.copy(p.pos);
             scene.add(marker);
             p.mesh = marker;
-
-            // Directional Vectors Line
+            
             const dirGeom = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,1,0), p.pos]);
-            scene.add(new THREE.Line(dirGeom, new THREE.LineBasicMaterial({ color: p.color, transparent: true, opacity: 0.4 })));
+            scene.add(new THREE.Line(dirGeom, new THREE.LineBasicMaterial({ color: p.color, transparent: true, opacity: 0.3 })));
         });
 
         // 5. Multilayered Planetary Grid Setup
         const layersConfig = [
-            { name: "Surya", r: 18, h: 5, c: 0xffaa00, size: 1.4, speed: 1.0 },
-            { name: "Chandra", r: 20, h: 10, c: 0xcccccc, size: 1.0, speed: 13.3 },
-            { name: "Budha", r: 22, h: 15, c: 0x00ffcc, size: 0.6, speed: 1.2 },
-            { name: "Mangal", r: 24, h: 20, c: 0xff4444, size: 0.8, speed: 0.5 },
-            { name: "Brihaspati", r: 26, h: 25, c: 0xffd700, size: 1.2, speed: 0.08 },
-            { name: "Shani", r: 28, h: 30, c: 0x551a8b, size: 1.0, speed: 0.03 }
+            { name: "Surya", r: 20, h: 6, c: 0xffaa00, size: 1.5 },
+            { name: "Chandra", r: 22, h: 11, c: 0xcccccc, size: 1.0 },
+            { name: "Budha", r: 24, h: 16, c: 0x00ffcc, size: 0.6 },
+            { name: "Mangal", r: 26, h: 21, c: 0xff4444, size: 0.8 },
+            { name: "Brihaspati", r: 28, h: 26, c: 0xffd700, size: 1.2 },
+            { name: "Shani", r: 30, h: 31, c: 0x551a8b, size: 1.0 }
         ];
 
         const grahaMeshes = {};
@@ -125,22 +126,20 @@
             scene.add(mesh);
             grahaMeshes[cfg.name] = mesh;
 
-            // Orbit Ring Helper
             const points = [];
             for(let i=0; i<=64; i++) {
                 const th = (i/64) * Math.PI * 2;
                 points.push(new THREE.Vector3(cfg.r * Math.cos(th), cfg.h, cfg.r * Math.sin(th)));
             }
-            scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), new THREE.LineBasicMaterial({ color: cfg.c, transparent: true, opacity: 0.15 })));
+            scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), new THREE.LineBasicMaterial({ color: cfg.c, transparent: true, opacity: 0.12 })));
         });
 
-        // Mechanical Axis Line (Chariot Connection)
         const axisGeom = new THREE.BufferGeometry();
         scene.add(new THREE.Line(axisGeom, new THREE.LineBasicMaterial({ color: 0xffaa00, linewidth: 2 })));
 
         // 6. Nakshatras
         const nakshatras = ["अश्विनी", "भरणी", "कृत्तिका", "रोहिणी", "मृगशिरा", "आर्द्रा", "पुनर्वसु", "पुष्य", "आश्लेषा", "मघा", "पूर्वाफाल्गुनी", "उत्तराफाल्गुनी", "हस्त", "चित्रा", "स्वाती", "विशाखा", "अनुराधा", "ज्येष्ठा", "मूल", "पूर्वाषाढ़ा", "उत्तराषाढ़ा", "श्रवण", "धनिष्ठा", "शतभिषा", "पूर्वाभाद्रपद", "उत्तराभाद्रपद", "रेवती"];
-        const nRadius = 32; const nHeight = 12;
+        const nRadius = 34; const nHeight = 13;
         nakshatras.forEach((name, i) => {
             const angle = (i / 27) * Math.PI * 2;
             const star = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 8), new THREE.MeshBasicMaterial({ color: 0x00ffff }));
@@ -148,60 +147,94 @@
             scene.add(star);
         });
 
-        // 7. Time Logic & Animation Variables
-        let currentAngleDegrees = 0;
-        let isPlaying = true;
-
-        const slider = document.getElementById('timeSlider');
-        const playBtn = document.getElementById('playBtn');
+        // 7. REAL-TIME ENGINE CLOCK SYNC LOGIC
+        const liveClockEl = document.getElementById('liveClock');
+        const ayanaStateEl = document.getElementById('ayanaState');
         const angleLabel = document.getElementById('angleLabel');
         const nakshatraInfo = document.getElementById('nakshatraInfo');
         const yojanaSpeed = document.getElementById('yojanaSpeed');
         const timezoneInfo = document.getElementById('timezoneInfo');
 
-        function updatePositions(deg) {
-            const rad = (deg * Math.PI) / 180;
+        function syncWithRealTimeAndDate() {
+            const now = new Date();
+            
+            // A. Time Calculations (For Daily Rotation Angle 0-360)
+            const hours = now.getHours();
+            const minutes = now.getMinutes();
+            const seconds = now.getSeconds();
+            const totalSecondsInDay = (hours * 3600) + (minutes * 60) + seconds;
+            
+            // 24 Hours = 360 Degrees. Map current second to specific degree.
+            // Offset shifted by Math.PI to match Sunrise in East (Devdhani) at 6:00 AM
+            const dayProgressAngle = (totalSecondsInDay / 86400) * 360;
+            const sunAngleRad = ((dayProgressAngle - 90) * Math.PI) / 180; // Shifted for alignment
 
+            // B. Date Calculations (For Yearly Nakshatra & Ayana Wave Tilt)
+            const start = new Date(now.getFullYear(), 0, 0);
+            const diff = now - start;
+            const oneDay = 1000 * 60 * 60 * 24;
+            const dayOfYear = Math.floor(diff / oneDay); // Day index 1 to 365
+
+            // Yearly angle for Sun tilt (Uttarayan / Dakshinayan)
+            const yearProgressAngle = (dayOfYear / 365) * Math.PI * 2;
+            const isUttarayan = (dayOfYear > 35 && dayOfYear < 218); // Approx phase mapping
+
+            // Update DOM Texts
+            liveClockEl.innerText = `🕒 समय: ${now.toLocaleTimeString()} | दिन: ${dayOfYear}/365`;
+            ayanaStateEl.innerText = isUttarayan ? "☀️ अयन स्थिति: उत्तरायण (Northward Sun)" : "🌙 अयन स्थिति: दक्षिणायन (Southward Sun)";
+
+            // C. Move Surya based on Current Time & Date Wave
+            const sunMesh = grahaMeshes["Surya"];
+            sunMesh.position.x = layersConfig[0].r * Math.cos(sunAngleRad);
+            sunMesh.position.z = layersConfig[0].r * Math.sin(sunAngleRad);
+            // Height moves up/down dynamically based on day of the year (Ayana Tilt)
+            sunMesh.position.y = layersConfig[0].h + 4.0 * Math.sin(yearProgressAngle);
+
+            // D. Move other Planets based on their relative scriptural speed mappings
             layersConfig.forEach(cfg => {
-                const mesh = grahaMeshes[cfg.name];
-                const dynamicRad = rad * cfg.speed; 
-                mesh.position.x = cfg.r * Math.cos(dynamicRad);
-                mesh.position.z = cfg.r * Math.sin(dynamicRad);
+                if(cfg.name !== "Surya") {
+                    const mesh = grahaMeshes[cfg.name];
+                    // Mapping planets linearly to show a dynamic active system synced to real clock micro-ticks
+                    let speedFactor = 1.0;
+                    if(cfg.name === "Chandra") speedFactor = 13.3;
+                    else if(cfg.name === "Budha") speedFactor = 1.2;
+                    else if(cfg.name === "Mangal") speedFactor = 0.5;
+                    else if(cfg.name === "Brihaspati") speedFactor = 0.08;
+                    else if(cfg.name === "Shani") speedFactor = 0.03;
 
-                // Sun-Moon Waves (Ayana Tilt)
-                if(cfg.name === "Surya" || cfg.name === "Chandra") {
-                    mesh.position.y = cfg.h + 3.0 * Math.sin(rad);
-                } else {
+                    const planetaryRad = sunAngleRad * speedFactor;
+                    mesh.position.x = cfg.r * Math.cos(planetaryRad);
+                    mesh.position.z = cfg.r * Math.sin(planetaryRad);
                     mesh.position.y = cfg.h;
                 }
             });
 
-            // Update Chariot Axis Line
-            const sunPos = grahaMeshes["Surya"].position;
-            axisGeom.setFromPoints([meruCenterNode, sunPos, polaris.position]);
+            // Update Chariot Mechanical Line
+            axisGeom.setFromPoints([meruCenterNode, sunMesh.position, polaris.position]);
 
-            // UI Text Sync
-            angleLabel.innerText = `कोण: ${Math.floor(deg)}°`;
-            slider.value = Math.floor(deg) % 360;
+            // E. Realtime Vedic Data Output Mappings
+            angleLabel.innerText = `सूर्य का वास्तविक खगोलीय कोण: ${Math.floor(dayProgressAngle)}°`;
+            
+            // Nakshatra tracking governed by Day of the Year (Sun's position in Zodiac)
+            const currentNakshatraIdx = Math.floor((dayOfYear / 365) * 27) % 27;
+            nakshatraInfo.innerHTML = `🌟 सूर्य आज <b>${nakshatras[currentNakshatraIdx]}</b> नक्षत्र में गोचर कर रहे हैं।`;
 
-            const nIdx = Math.floor((deg / 360) * 27) % 27;
-            nakshatraInfo.innerHTML = `🌟 सूर्य इस क्षण <b>${nakshatras[nIdx]}</b> नक्षत्र में भ्रमण कर रहे हैं।`;
+            const coveredYojanas = Math.floor((dayProgressAngle / 360) * 95100000);
+            yojanaSpeed.innerHTML = `🏎️ **आज की तय दूरी:** ${coveredYojanas.toLocaleString()} / 9,51,00,000 योजन`;
 
-            const coveredYojanas = Math.floor(((deg % 360) / 360) * 95100000);
-            yojanaSpeed.innerHTML = `🏎️ **दूरी:** ${coveredYojanas.toLocaleString()} / 9,51,00,000 योजन (मानसोत्तर परिधि)`;
+            // Live Timezone monitoring algorithm based on 24-hour cycle clock position
+            let activePuri = ""; let localClockAction = "";
+            const normDeg = (dayProgressAngle % 360);
 
-            // Timezone Tracking Logic
-            const normDeg = (deg % 360);
-            let activePuri = ""; let action = "";
-            if (normDeg >= 315 || normDeg < 45) { activePuri = "देवधानी (पूर्व)"; action = "🌅 सूर्योदय"; }
-            else if (normDeg >= 45 && normDeg < 135) { activePuri = "संयमनी (दक्षिण)"; action = "☀️ मध्याह्न (दुपहर)"; }
-            else if (normDeg >= 135 && normDeg < 225) { activePuri = "निम्लोचनी (पश्चिम)"; action = "🌇 सूर्यास्त"; }
-            else { activePuri = "विभावरी (उत्तर)"; action = "🌙 अर्धरात्रि"; }
+            if (normDeg >= 45 && normDeg < 135) { activePuri = "संयमनी पुरी (यमलोक - दक्षिण)"; localClockAction = "☀️ मध्याह्न (Exact Noon)"; }
+            else if (normDeg >= 135 && normDeg < 225) { activePuri = "निम्लोचनी पुरी (वरुणलोक - पश्चिम)"; localClockAction = "🌇 सूर्यास्त (Evening)"; }
+            else if (normDeg >= 225 && normDeg < 315) { activePuri = "विभावरी पुरी (चंद्रलोक - उत्तर)"; localClockAction = "🌙 अर्धरात्रि (Midnight)"; }
+            else { activePuri = "देवधानी पुरी (इंद्रलोक - पूर्व)"; localClockAction = "🌅 सूर्योदय (Morning)"; }
 
-            timezoneInfo.innerHTML = `📍 **${activePuri}** के ऊपर अभी **${action}** का काल है।`;
+            timezoneInfo.innerHTML = `📍 इस क्षण ब्रह्मांडीय स्थिति: **${activePuri}** में **${localClockAction}** चल रहा है।`;
         }
 
-        // 8. Projection Controls
+        // 8. 3D Node Label Projections
         function updateHTMLLabels() {
             purisData.forEach(p => {
                 const projV = p.mesh.position.clone().project(camera);
@@ -214,27 +247,14 @@
             });
         }
 
-        // Event Listeners
-        slider.addEventListener('input', (e) => {
-            currentAngleDegrees = parseInt(e.target.value);
-            updatePositions(currentAngleDegrees);
-        });
-
-        playBtn.addEventListener('click', () => {
-            isPlaying = !isPlaying;
-            playBtn.innerText = isPlaying ? "⏸️ Pause" : "▶️ Play";
-        });
-
-        // 9. Main Realtime Loop
+        // 9. Synchronous Main Render Loop
         function renderLoop() {
             requestAnimationFrame(renderLoop);
             
-            if (isPlaying) {
-                currentAngleDegrees += 0.3; // ऑटो-रोटेशन गति (Real-time speed engine)
-                updatePositions(currentAngleDegrees);
-            }
+            // Continuous microsecond clock ticks evaluation
+            syncWithRealTimeAndDate();
 
-            earth.rotation.y += 0.001; 
+            earth.rotation.y = 0.01; // Keeps geographic sync steady
             controls.update();
             updateHTMLLabels();
             renderer.render(scene, camera);

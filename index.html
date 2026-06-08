@@ -3,34 +3,54 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vedic Cosmic Simulator (Phase 11 - Constellation Planetarium)</title>
+    <title>Vedic Star Tracker & Cosmic Clock (Phase 12)</title>
     <style>
-        body { margin: 0; overflow: hidden; background-color: #000; font-family: sans-serif; }
+        body { margin: 0; overflow: hidden; background-color: #020208; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         #canvas-container { width: 100vw; height: 100vh; }
-        #controls {
-            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.85); padding: 12px 20px; border-radius: 10px;
-            box-shadow: 0 0 20px rgba(255,165,0,0.6); border: 1px solid #ffa500;
-            color: white; width: 85%; max-width: 650px; text-align: center;
-        }
+        
+        /* Modern Star Tracker Glassmorphism UI */
         #info {
-            position: absolute; top: 10px; left: 10px; color: #fff;
-            background: rgba(0,0,0,0.75); padding: 12px; border-radius: 5px; border-left: 4px solid #ffa500;
-            font-size: 13px; max-width: 360px; pointer-events: none; max-height: 80vh; overflow-y: auto;
+            position: absolute; top: 15px; left: 15px; color: #fff;
+            background: rgba(10, 10, 25, 0.75); backdrop-filter: blur(10px);
+            padding: 15px; border-radius: 12px; border: 1px solid rgba(0, 255, 170, 0.3);
+            font-size: 13px; max-width: 350px; pointer-events: none;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
         }
-        .dynamic-label {
-            position: absolute; color: #ffaa00; font-weight: bold; font-size: 10px;
-            background: rgba(0,0,0,0.7); padding: 2px 5px; border-radius: 3px;
-            border: 1px solid rgba(255,165,0,0.5); pointer-events: none; display: none;
-            white-space: nowrap;
+        .live-indicator {
+            display: inline-flex; align-items: center; background: rgba(255, 0, 0, 0.2);
+            color: #ff4444; padding: 3px 8px; border-radius: 20px; font-size: 11px;
+            font-weight: bold; border: 1px solid #ff4444; margin-bottom: 8px;
         }
-        .const-label { color: #00ffff; border-color: #00ffff; font-size: 11px; }
-        .live-badge { background: red; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px; font-weight: bold; }
+        .live-dot { width: 6px; height: 6px; background: #ff4444; border-radius: 50%; margin-right: 6px; animation: blink 1s infinite; }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+        #controls {
+            position: absolute; bottom: 25px; left: 50%; transform: translateX(-50%);
+            background: rgba(10, 10, 25, 0.85); backdrop-filter: blur(12px);
+            padding: 12px 25px; border-radius: 30px;
+            box-shadow: 0 0 25px rgba(0, 255, 255, 0.2); border: 1px solid rgba(255, 165, 0, 0.4);
+            color: white; width: 85%; max-width: 600px; text-align: center;
+            display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 8px;
+        }
         .view-btn {
-            background: #222; border: 1px solid #ffa500; color: #ffa500; padding: 5px 10px;
-            font-weight: bold; border-radius: 4px; cursor: pointer; margin: 3px; font-size: 12px;
+            background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 165, 0, 0.5);
+            color: #ffa500; padding: 8px 16px; font-weight: bold; border-radius: 20px;
+            cursor: pointer; transition: all 0.3s ease; font-size: 12px;
         }
-        .view-btn.active { background: #ffa500; color: black; box-shadow: 0 0 8px #ffa500; }
+        .view-btn:hover, .view-btn.active {
+            background: linear-gradient(45deg, #ffa500, #ff5500); color: black;
+            border-color: #fff; box-shadow: 0 0 12px #ffa500;
+        }
+
+        /* Float 32D Labels */
+        .dynamic-label {
+            position: absolute; color: #ffcc00; font-weight: bold; font-size: 11px;
+            background: rgba(5, 5, 15, 0.8); padding: 3px 6px; border-radius: 4px;
+            border: 1px solid rgba(255, 204, 0, 0.4); pointer-events: none;
+            display: none; white-space: nowrap; font-family: monospace;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+        }
+        .const-label { color: #00ffff; border-color: rgba(0, 255, 255, 0.4); font-size: 12px; }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
@@ -38,42 +58,45 @@
 <body>
 
     <div id="info">
-        <span class="live-badge">🔴 LIVE SYSTEM SYNC</span>
-        <h4 style="margin:5px 0;">वैदिक तारामंडल एवं नक्षत्र चक्र (फेज 11)</h4>
-        <p style="color:#00ffaa; margin:2px 0;">📍 स्थान: बाराबंकी, उत्तर प्रदेश (Barabanki, UP)</p>
-        <p id="liveClock" style="color: #ffa500; font-weight: bold; margin: 3px 0;"></p>
-        <hr style="border-color:#555;">
-        <p id="nakshatraInfo" style="margin:3px 0;">गणना चालू...</p>
-        <p id="timezoneInfo" style="color: #ffaa00; margin:3px 0;"></p>
+        <div class="live-indicator"><div class="live-dot"></div>STAR TRACKER MODE ACTIVE</div>
+        <h3 style="margin: 0 0 5px 0; color: #00ffaa; font-size: 16px;">वैदिक आकाशीय वेधशाला</h3>
+        <p style="margin: 2px 0; color: #bbb;">📍 केंद्र प्रेक्षण: बाराबंकी, भारत</p>
+        <p id="liveClock" style="color: #ffa500; font-weight: bold; font-size: 14px; margin: 4px 0;"></p>
+        <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.15); margin: 8px 0;">
+        <p id="nakshatraInfo" style="margin: 4px 0;"></p>
+        <p id="timezoneInfo" style="color: #ffaa00; margin: 4px 0; font-weight: 500;"></p>
     </div>
 
     <div id="labels-container"></div>
-
     <div id="canvas-container"></div>
 
     <div id="controls">
-        <button id="btn-geo" class="view-btn active">🌍 Geocentric</button>
-        <button id="btn-sun" class="view-btn">☀️ Sun-centric</button>
-        <button id="btn-polaris" class="view-btn">⭐ Polaris-centric</button>
-        <div id="angleLabel" style="margin-top:5px; font-size:11px; color:#ccc;">सूर्य का वर्तमान क्रांति कोण...</div>
+        <button id="btn-geo" class="view-btn active">🌍 भू-केन्द्रित VIEW</button>
+        <button id="btn-sun" class="view-btn">☀️ सूर्य-केन्द्रित VIEW</button>
+        <button id="btn-polaris" class="view-btn">⭐ ध्रुव-केन्द्रित VIEW</button>
     </div>
 
     <script>
-        // 1. Scene & Engine Setup
+        // 1. Scene & Render Setup
         const scene = new THREE.Scene();
+        // Dark space fog to mimic Star Tracker atmosphere blending
+        scene.fog = new THREE.FogExp2(0x020208, 0.003);
+
         const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
         document.getElementById('canvas-container').appendChild(renderer.domElement);
 
-        camera.position.set(0, 65, 100);
+        camera.position.set(0, 50, 95);
         const controls = new THREE.OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
 
         const labelsContainer = document.getElementById('labels-container');
-        const trackingObjects = []; // Elements to project into 2D DOM labels
+        const trackingObjects = [];
 
-        function createLabel(id, text, isConstellation = false) {
+        function createDOMTextLabel(id, text, isConstellation = false) {
             const div = document.createElement('div');
             div.id = `label-${id}`;
             div.className = `dynamic-label ${isConstellation ? 'const-label' : ''}`;
@@ -82,227 +105,255 @@
             return div;
         }
 
-        // 2. Deep Space Ambient Starfield
-        const starsGeom = new THREE.BufferGeometry();
-        const starPos = new Float32Array(3000 * 3);
-        for(let i=0; i<3000*3; i++) starPos[i] = (Math.random() - 0.5) * 500;
-        starsGeom.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
-        scene.add(new THREE.Points(starsGeom, new THREE.PointsMaterial({ color: 0xffffff, size: 0.2 })));
-
-        // 3. Central Geographic Point (Earth & Meru Axis Peak)
+        // 2. High-Fidelity Deep Space Grid & Nebula Textures
         const textureLoader = new THREE.TextureLoader();
+        
+        // Star tracker glowing cosmic dust field
+        const starCount = 3500;
+        const starGeometry = new THREE.BufferGeometry();
+        const starPositions = new Float32Array(starCount * 3);
+        const starColors = new Float32Array(starCount * 3);
+
+        for(let i=0; i<starCount*3; i+=3) {
+            // Spherical distribution for realistic outer space shell
+            const u = Math.random(); const v = Math.random();
+            const theta = u * 2.0 * Math.PI; const phi = Math.acos(2.0 * v - 1.0);
+            const r = 250 + Math.random() * 150;
+            
+            starPositions[i] = r * Math.sin(phi) * Math.cos(theta);
+            starPositions[i+1] = r * Math.sin(phi) * Math.sin(theta);
+            starPositions[i+2] = r * Math.cos(phi);
+
+            // Realistic star temperatures (Blue-white to yellow-orange)
+            const randColor = Math.random();
+            if(randColor > 0.7) { starColors[i]=0.7; starColors[i+1]=0.8; starColors[i+2]=1.0; } // Blueish
+            else if(randColor > 0.4) { starColors[i]=1.0; starColors[i+1]=0.9; starColors[i+2]=0.7; } // Warm Giant
+            else { starColors[i]=1.0; starColors[i+1]=1.0; starColors[i+2]=1.0; } // White
+        }
+        starGeometry.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+        starGeometry.setAttribute('color', new THREE.BufferAttribute(starColors, 3));
+        const starMaterial = new THREE.PointsMaterial({ size: 0.4, vertexColors: true, transparent: true, opacity: 0.9 });
+        scene.add(new THREE.Points(starGeometry, starMaterial));
+
+        // 3. Central Geographic Node (Earth)
         const earthTex = textureLoader.load('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_atmos_2048.jpg');
-        const earth = new THREE.Mesh(new THREE.SphereGeometry(4, 32, 32), new THREE.MeshBasicMaterial({ map: earthTex }));
+        const earth = new THREE.Mesh(new THREE.SphereGeometry(4.5, 32, 32), new THREE.MeshBasicMaterial({ map: earthTex }));
         earth.rotation.y = Math.PI;
         scene.add(earth);
-
-        const meruCenterNode = new THREE.Vector3(0, 4, 0);
         
-        // Dhruva Loka Node (The Spinal Anchor point of Shishumara)
-        const polaris = new THREE.Mesh(new THREE.SphereGeometry(1.0, 16, 16), new THREE.MeshBasicMaterial({ color: 0xffffff }));
-        polaris.position.set(0, 48, 0);
-        scene.add(polaris);
-        trackingObjects.push({ mesh: polaris, dom: createLabel('polaris', 'ध्रुव तारा (Polaris)') });
+        const meruCenterNode = new THREE.Vector3(0, 4.5, 0);
 
-        // 4. Mapping the 4 Puranic Horizon Cities (Timezones)
-        const purisRadius = 22; const purisHeight = 1.0;
+        // Dhruva Tara Node (The Axis Centerpiece)
+        const polaris = new THREE.Mesh(new THREE.SphereGeometry(1.2, 16, 16), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+        polaris.position.set(0, 52, 0);
+        scene.add(polaris);
+        trackingObjects.push({ mesh: polaris, dom: createDOMTextLabel('polaris', '⭐ ध्रुव तारा (Polaris)') });
+
+        // 4. Timezone Reference Cities (Puris) Grid
+        const purisRadius = 24; const purisHeight = 0;
         const purisData = [
-            { id: "devdhani", name: "🌅 देवधानी (पूर्व)", pos: new THREE.Vector3(purisRadius, purisHeight, 0), color: 0x00ffff },
-            { id: "samyamani", name: "🔴 संयमनी (यमलोक - दक्षिण)", pos: new THREE.Vector3(0, purisHeight, purisRadius), color: 0xff3333 },
-            { id: "nimlochani", name: "🌇 निम्लोचनी (पश्चिम)", pos: new THREE.Vector3(-purisRadius, purisHeight, 0), color: 0x00ff00 },
-            { id: "vibhavari", name: "🌙 विभावरी (उत्तर)", pos: new THREE.Vector3(0, purisHeight, -purisRadius), color: 0xffaa00 }
+            { id: "devdhani", name: "🌅 इंद्रपुरी (East)", pos: new THREE.Vector3(purisRadius, purisHeight, 0), color: 0x00f3ff },
+            { id: "samyamani", name: "🔴 संयमनी (South)", pos: new THREE.Vector3(0, purisHeight, purisRadius), color: 0xff3333 },
+            { id: "nimlochani", name: "🌇 निम्लोचनी (West)", pos: new THREE.Vector3(-purisRadius, purisHeight, 0), color: 0x00ff55 },
+            { id: "vibhavari", name: "🌙 विभावरी (North)", pos: new THREE.Vector3(0, purisHeight, -purisRadius), color: 0xffaa00 }
         ];
 
         purisData.forEach(p => {
-            const marker = new THREE.Mesh(new THREE.SphereGeometry(0.5, 16, 16), new THREE.MeshBasicMaterial({ color: p.color }));
+            const marker = new THREE.Mesh(new THREE.SphereGeometry(0.4, 16, 16), new THREE.MeshBasicMaterial({ color: p.color, transparent: true, opacity: 0.8 }));
             marker.position.copy(p.pos);
             scene.add(marker);
-            trackingObjects.push({ mesh: marker, dom: createLabel(p.id, p.name) });
+            trackingObjects.push({ mesh: marker, dom: createDOMTextLabel(p.id, p.name) });
+
+            // Radar Tracking Lines
+            const lineG = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0), p.pos]);
+            scene.add(new THREE.Line(lineG, new THREE.LineBasicMaterial({ color: p.color, transparent: true, opacity: 0.25 })));
         });
 
-        // 5. Multilayered Planetary Grid System (With Real Scriptural Relative Frequencies)
-        // Shrimad Bhagavat Chapter 22 Height Dimensions
+        // 5. Planetary Structure Matrix (Relative Shrimad Bhagavat Speed Sync)
         const layersConfig = [
-            { name: "सूर्य (Sun)", r: 22, h: 7, c: 0xffaa00, size: 1.6, speedFreq: 1.0 }, 
-            { name: "चन्द्र (Moon)", r: 24, h: 13, c: 0xcccccc, size: 1.0, speedFreq: 13.3 }, // Moves faster through 27 constellations
-            { name: "बुध (Mercury)", r: 26, h: 19, c: 0x00ffcc, size: 0.6, speedFreq: 1.2 },
-            { name: "मंगल (Mars)", r: 28, h: 25, c: 0xff4444, size: 0.8, speedFreq: 0.5 },
-            { name: "बृहस्पति (Jupiter)", r: 30, h: 31, c: 0xffd700, size: 1.3, speedFreq: 0.083 }, // Takes ~12 years for full zodiac cycle
-            { name: "शनि (Saturn)", r: 32, h: 37, c: 0x551a8b, size: 1.1, speedFreq: 0.033 }   // Takes ~30 years
+            { name: "सूर्य (Sun)", r: 24, h: 8, c: 0xffd700, size: 2.0, speedFreq: 1.0 },
+            { name: "चन्द्र (Moon)", r: 27, h: 14, c: 0xe0e0e0, size: 1.2, speedFreq: 13.3 },
+            { name: "बुध (Mercury)", r: 30, h: 20, c: 0x00ffcc, size: 0.7, speedFreq: 1.2 },
+            { name: "मंगल (Mars)", r: 33, h: 26, c: 0xff5555, size: 0.9, speedFreq: 0.5 },
+            { name: "बृहस्पति (Jupiter)", r: 36, h: 32, c: 0xffb700, size: 1.5, speedFreq: 0.083 },
+            { name: "शनि (Saturn)", r: 39, h: 38, c: 0x9c27b0, size: 1.3, speedFreq: 0.033 }
         ];
 
         const grahaMeshes = {};
         layersConfig.forEach(cfg => {
+            // High Glow Shader Effect Substitute
             const mesh = new THREE.Mesh(new THREE.SphereGeometry(cfg.size, 16, 16), new THREE.MeshBasicMaterial({ color: cfg.c }));
             scene.add(mesh);
             grahaMeshes[cfg.name] = mesh;
-            trackingObjects.push({ mesh: mesh, dom: createLabel(`graha-${cfg.name}`, cfg.name) });
+            trackingObjects.push({ mesh: mesh, dom: createDOMTextLabel(`graha-${cfg.name}`, cfg.name) });
 
-            // Planetary Orbital Ring Path Design
+            // Glowing Tracking Paths
             const ringPts = [];
-            for(let i=0; i<=64; i++) {
-                const th = (i/64) * Math.PI * 2;
+            for(let i=0; i<=90; i++) {
+                const th = (i/90) * Math.PI * 2;
                 ringPts.push(new THREE.Vector3(cfg.r * Math.cos(th), cfg.h, cfg.r * Math.sin(th)));
             }
-            scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(ringPts), new THREE.LineBasicMaterial({ color: cfg.c, transparent: true, opacity: 0.15 })));
+            scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(ringPts), new THREE.LineBasicMaterial({ color: cfg.c, transparent: true, opacity: 0.2 })));
         });
 
-        // Main Synchronous Rath Dhuri Axis Line
+        // The Golden Wheel Axis (Chariot Connection)
         const axisGeom = new THREE.BufferGeometry();
-        scene.add(new THREE.Line(axisGeom, new THREE.LineBasicMaterial({ color: 0xffaa00, linewidth: 2 })));
+        scene.add(new THREE.Line(axisGeom, new THREE.LineBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 0.5 })));
 
-        // 6. 27 Nakshatras Matrix
+        // 6. Fixed Constellation Matrix (Nakshatras & Star Constellations)
         const nakshatras = ["अश्विनी", "भरणी", "कृत्तिका", "रोहिणी", "मृगशिरा", "आर्द्रा", "पुनर्वसु", "पुष्य", "आश्लेषा", "मघा", "पूर्वाफाल्गुनी", "उत्तराफाल्गुनी", "हस्त", "चित्रा", "स्वाती", "विशाखा", "अनुराधा", "ज्येष्ठा", "मूल", "पूर्वाषाढ़ा", "उत्तराषाढ़ा", "श्रवण", "धनिष्ठा", "शतभिषा", "पूर्वाभाद्रपद", "उत्तराभाद्रपद", "रेवती"];
-        const nRadius = 38; const nHeight = 16;
+        const nRadius = 45; const nHeight = 15;
+        
+        // Draw Outer Constellation Ring boundary
+        const outerRingPts = [];
+        for(let i=0; i<=120; i++) {
+            const th = (i/120) * Math.PI * 2;
+            outerRingPts.push(new THREE.Vector3(nRadius * Math.cos(th), nHeight, nRadius * Math.sin(th)));
+        }
+        scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(outerRingPts), new THREE.LineBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.15 })));
+
         nakshatras.forEach((name, i) => {
             const angle = (i / 27) * Math.PI * 2;
             const pt = new THREE.Vector3(nRadius * Math.cos(angle), nHeight, nRadius * Math.sin(angle));
-            const starMesh = new THREE.Mesh(new THREE.SphereGeometry(0.25, 8, 8), new THREE.MeshBasicMaterial({ color: 0x00ffff }));
+            
+            const starMesh = new THREE.Mesh(new THREE.SphereGeometry(0.3, 8, 8), new THREE.MeshBasicMaterial({ color: 0x00ffff }));
             starMesh.position.copy(pt);
             scene.add(starMesh);
             
-            // Only add selective tracking labels to keep mobile layout clean and readable
             if(i % 2 === 0) {
-                trackingObjects.push({ mesh: starMesh, dom: createLabel(`nak-${i}`, name) });
+                trackingObjects.push({ mesh: starMesh, dom: createDOMTextLabel(`nak-${i}`, name) });
             }
         });
 
-        // 7. Core Vedic Puranic Constellations (तारामंडल) Engine
-        // Vector maps designed to represent correct geometric shapes in deep space
-        function addConstellation(name, origin, relativeStars, color = 0x88ccff) {
-            const groupMesh = new THREE.Group();
-            const points = [new THREE.Vector3(0,0,0)];
-            
-            // Draw Core Pivot Star Node
-            const pivotStar = new THREE.Mesh(new THREE.SphereGeometry(0.4, 8, 8), new THREE.MeshBasicMaterial({ color: 0xffffff }));
-            groupMesh.add(pivotStar);
+        // 7. Advanced Constellation Star-Tracker Blueprint
+        function buildGlowConstellation(name, pivotPos, starOffsets, color = 0x00e1ff) {
+            const group = new THREE.Group();
+            const points = [];
 
-            // Map Relative Connection Lines to draw the cluster shape
-            relativeStars.forEach(s => {
-                const sMesh = new THREE.Mesh(new THREE.SphereGeometry(0.3, 8, 8), new THREE.MeshBasicMaterial({ color: 0xffffff }));
-                sMesh.position.copy(s);
-                groupMesh.add(sMesh);
-                points.push(s);
+            // Main Star Anchor Node
+            const anchor = new THREE.Mesh(new THREE.SphereGeometry(0.5, 8, 8), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+            group.add(anchor);
+            points.push(new THREE.Vector3(0,0,0));
+
+            // Generate Cluster Array
+            starOffsets.forEach(offset => {
+                const node = new THREE.Mesh(new THREE.SphereGeometry(0.35, 8, 8), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+                node.position.copy(offset);
+                group.add(node);
+                points.push(offset);
             });
 
-            const lineGeom = new THREE.BufferGeometry().setFromPoints(points);
-            const line = new THREE.Line(lineGeom, new THREE.LineBasicMaterial({ color: color, transparent: true, opacity: 0.6 }));
-            groupMesh.add(line);
+            // Draw Vector Shape Connecting Lines
+            const geo = new THREE.BufferGeometry().setFromPoints(points);
+            const structureLines = new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: color, transparent: true, opacity: 0.5, linewidth: 1.5 }));
+            group.add(structureLines);
 
-            groupMesh.position.copy(origin);
-            scene.add(groupMesh);
+            group.position.copy(pivotPos);
+            scene.add(group);
 
-            trackingObjects.push({ mesh: pivotStar, dom: createLabel(`const-${name}`, name, true), isGroupChild: true, parentGroup: groupMesh });
+            trackingObjects.push({ mesh: anchor, dom: createDOMTextLabel(name, name, true), isGroupChild: true, parentGroup: group });
         }
 
-        // Plotting Major Constellations matching your blueprint
-        // 1. सप्तर्षि मंडल (Ursa Major - Great Bear)
-        addConstellation("सप्तर्षि मंडल (Ursa Major)", new THREE.Vector3(-25, 45, -25), [
-            new THREE.Vector3(3, 1, 0), new THREE.Vector3(6, 0, 1), new THREE.Vector3(8, -2, 2),
-            new THREE.Vector3(12, -2, 1), new THREE.Vector3(15, 1, -1), new THREE.Vector3(13, 4, -2)
+        // Plotting accurate multi-node vectors for genuine star tracker visuals
+        buildGlowConstellation("सप्तर्षि मंडल (Ursa Major)", new THREE.Vector3(-30, 48, -35), [
+            new THREE.Vector3(4, 2, 0), new THREE.Vector3(8, 1, 2), new THREE.Vector3(11, -2, 3),
+            new THREE.Vector3(16, -2, 1), new THREE.Vector3(20, 2, -1), new THREE.Vector3(17, 6, -3),
+            new THREE.Vector3(11, -2, 3) // Loop line fallback
         ], 0x00ffaa);
 
-        // 2. कालपुरुष मंडल (Orion)
-        addConstellation("कालपुरुष (Orion)", new THREE.Vector3(-35, 22, 30), [
-            new THREE.Vector3(0, 5, 0), new THREE.Vector3(4, 4, -1), new THREE.Vector3(3, -1, 1),
-            new THREE.Vector3(-1, -2, 0), new THREE.Vector3(1, 2, 0), new THREE.Vector3(2, 2, 0)
+        buildGlowConstellation("कालपुरुष (Orion)", new THREE.Vector3(-45, 18, 40), [
+            new THREE.Vector3(0, 7, 0), new THREE.Vector3(5, 5, -2), new THREE.Vector3(4, -2, 2),
+            new THREE.Vector3(-2, -3, 0), new THREE.Vector3(1, 3, 0), new THREE.Vector3(3, 3, 1),
+            new THREE.Vector3(0, 7, 0)
         ], 0xffaa00);
 
-        // 3. सिंह राशि तारामंडल (Leo)
-        addConstellation("सिंह (Leo)", new THREE.Vector3(35, 30, -30), [
-            new THREE.Vector3(-3, 2, 1), new THREE.Vector3(1, 4, 0), new THREE.Vector3(4, 1, -2),
-            new THREE.Vector3(2, -3, -1), new THREE.Vector3(-2, -2, 0)
+        buildGlowConstellation("सिंह (Leo Constellation)", new THREE.Vector3(45, 32, -40), [
+            new THREE.Vector3(-4, 3, 1), new THREE.Vector3(2, 5, 0), new THREE.Vector3(6, 1, -2),
+            new THREE.Vector3(3, -4, -1), new THREE.Vector3(-3, -3, 0), new THREE.Vector3(-4, 3, 1)
         ], 0xff33aa);
 
-        // 4. वृश्चिक मंडल (Scorpius)
-        addConstellation("वृश्चिक (Scorpius)", new THREE.Vector3(25, 15, 35), [
-            new THREE.Vector3(-2, -1, 0), new THREE.Vector3(-5, -3, 2), new THREE.Vector3(-4, -6, 4),
-            new THREE.Vector3(-1, -7, 3), new THREE.Vector3(2, -5, 1)
+        buildGlowConstellation("वृश्चिक (Scorpius)", new THREE.Vector3(35, 12, 45), [
+            new THREE.Vector3(-3, -2, 0), new THREE.Vector3(-7, -4, 3), new THREE.Vector3(-5, -8, 5),
+            new THREE.Vector3(-1, -9, 4), new THREE.Vector3(3, -6, 1)
         ], 0xff3333);
 
-        // 5. मीन मंडल (Pisces)
-        addConstellation("मीन (Pisces)", new THREE.Vector3(-40, 28, -20), [
-            new THREE.Vector3(-2, 3, -1), new THREE.Vector3(3, 5, 2), new THREE.Vector3(6, 1, 1),
-            new THREE.Vector3(2, -2, 0), new THREE.Vector3(-3, -1, -2)
-        ], 0x3388ff);
 
+        // 8. Time Engine Clock Core Implementation
+        let activePerspectiveMode = "geo";
 
-        // 8. Clock Sync & Multi-Perspective Dynamic Lerp Controls
-        let currentPerspectiveType = "geo";
-
-        function syncRealtimeClock() {
+        function updateCosmicClockEngine() {
             const now = new Date();
-            const h = now.getHours(); const m = now.getMinutes(); const s = now.getSeconds();
-            const daySeconds = (h * 3600) + (m * 60) + s;
+            const secProgress = (now.getHours() * 3600) + (now.getMinutes() * 60) + now.getSeconds();
             
-            // Map 24 hours strictly to 0-360 degrees rotation matrix
-            const baseDegree = (daySeconds / 86400) * 360;
-            const sunRad = ((baseDegree - 90) * Math.PI) / 180;
+            // Map 24 Hour Engine directly to Clock Degrees
+            const rotationDegrees = (secProgress / 86400) * 360;
+            const sunAngleRad = ((rotationDegrees - 90) * Math.PI) / 180;
 
-            const startOfYr = new Date(now.getFullYear(), 0, 0);
-            const totalDays = Math.floor((now - startOfYr) / (1000 * 60 * 60 * 24));
-            const yearRad = (totalDays / 365) * Math.PI * 2;
+            const start = new Date(now.getFullYear(), 0, 0);
+            const currentYearDayIdx = Math.floor((now - start) / (1000 * 60 * 60 * 24));
+            const yearlyCycleRad = (currentYearDayIdx / 365) * Math.PI * 2;
 
-            document.getElementById('liveClock').innerText = `🕒 समय: ${now.toLocaleTimeString()} IST`;
+            document.getElementById('liveClock').innerText = `🕒 ${now.toLocaleTimeString()} | ${now.toLocaleDateString('hi-IN')}`;
 
-            // Process Independent Planetary Velocities (Orbital Mechanics Integration)
+            // Sync planets positions based on custom relative orbital mechanics
             layersConfig.forEach(cfg => {
                 const mesh = grahaMeshes[cfg.name];
-                // Sync position angle linearly governed by clock updates scaled to scriptural ratios
-                const planetaryRad = sunRad * cfg.speedFreq;
-                mesh.position.x = cfg.r * Math.cos(planetaryRad);
-                mesh.position.z = cfg.r * Math.sin(planetaryRad);
+                const activeRad = sunAngleRad * cfg.speedFreq;
+                mesh.position.x = cfg.r * Math.cos(activeRad);
+                mesh.position.z = cfg.r * Math.sin(activeRad);
                 
                 if(cfg.name === "सूर्य (Sun)") {
-                    mesh.position.y = cfg.h + 4.5 * Math.sin(yearRad); // Ayana Seasonal Height Wave
+                    // Height shifts smoothly mapping Uttarayan/Dakshinayan Wave
+                    mesh.position.y = cfg.h + 5.0 * Math.sin(yearlyCycleRad);
                 } else {
                     mesh.position.y = cfg.h;
                 }
             });
 
-            // Update Chariot Connection Rod Geometry
-            const sunPos = grahaMeshes["सूर्य (Sun)"].position;
-            axisGeom.setFromPoints([meruCenterNode, sunPos, polaris.position]);
+            // Re-render Chariot Connection Rig
+            const sunPosition = grahaMeshes["सूर्य (Sun)"].position;
+            axisGeom.setFromPoints([meruCenterNode, sunPosition, polaris.position]);
 
-            document.getElementById('angleLabel').innerText = `सूर्य कोण: ${Math.floor(baseDegree)}° | वर्ष का दिन index: ${totalDays}/365`;
+            // Track Zodiac Nakshatra State Text
+            const calculatedNakIdx = Math.floor((currentYearDayIdx / 365) * 27) % 27;
+            document.getElementById('nakshatraInfo').innerHTML = `🌌 सूर्य गोचर नक्षत्र: <b style="color:#00ffff;">${nakshatras[calculatedNakIdx]}</b>`;
+
+            // Active Horizon Calculation Engine
+            let activeHorizonCity = ""; let status = "";
+            const normalizedDegrees = (rotationDegrees % 360);
+            if (normalizedDegrees >= 45 && normalizedDegrees < 135) { activeHorizonCity = "संयमनी पुरी (यमलोक - दक्षिण)"; status = "☀️ मध्याह्न (Noon)"; }
+            else if (normalizedDegrees >= 135 && normalizedDegrees < 225) { activeHorizonCity = "निम्लोचनी पुरी (वरुणलोक - पश्चिम)"; status = "🌇 सूर्यास्त"; }
+            else if (normalizedDegrees >= 225 && normalizedDegrees < 315) { activeHorizonCity = "विभावरी पुरी (उत्तर)"; status = "🌙 अर्धरात्रि"; }
+            else { activeHorizonCity = "इंद्रपुरी (देवधानी - पूर्व)"; status = "🌅 सूर्योदय"; }
             
-            const activeNakshatrasIdx = Math.floor((totalDays / 365) * 27) % 27;
-            document.getElementById('nakshatraInfo').innerHTML = `🌟 सूर्य आज <b>${nakshatras[activeNakshatrasIdx]}</b> नक्षत्र मंडल में गोचर कर रहे हैं।`;
+            document.getElementById('timezoneInfo').innerHTML = `🗺️ स्थानीय काल: **${status}** (${activeHorizonCity})`;
 
-            // Horizon Timezone Monitoring Algorithm
-            let curPuri = ""; let puriAction = "";
-            const normDeg = (baseDegree % 360);
-            if (normDeg >= 45 && normDeg < 135) { curPuri = "संयमनी पुरी (दक्षिण)"; puriAction = "☀️ मध्याह्न (Noon)"; }
-            else if (normDeg >= 135 && normDeg < 225) { curPuri = "निम्लोचनी (पश्चिम)"; puriAction = "% Johannes 🌇 सूर्यास्त"; }
-            else if (normDeg >= 225 && normDeg < 315) { curPuri = "विभावरी (उत्तर)"; puriAction = "🌙 अर्धरात्रि"; }
-            else { curPuri = "देवधानी (पूर्व)"; puriAction = "🌅 सूर्योदय"; }
-            document.getElementById('timezoneInfo').innerHTML = `📍 अभी **${curPuri}** में **${puriAction}** प्रभावी है।`;
-
-            // Camera Focus Interpolation Engine (Lerp)
-            if (currentPerspectiveType === "geo") {
-                controls.target.lerp(new THREE.Vector3(0, 0, 0), 0.08);
-            } else if (currentPerspectiveType === "sun") {
-                controls.target.lerp(sunPos, 0.08);
-            } else if (currentPerspectiveType === "polaris") {
-                controls.target.lerp(polaris.position, 0.08);
+            // Smooth Interpolation Camera Engine (Lerp Frame Balancing)
+            if (activePerspectiveMode === "geo") {
+                controls.target.lerp(new THREE.Vector3(0, 0, 0), 0.05);
+            } else if (activePerspectiveMode === "sun") {
+                controls.target.lerp(sunPosition, 0.05);
+            } else if (activePerspectiveMode === "polaris") {
+                controls.target.lerp(polaris.position, 0.05);
             }
         }
 
-        // 9. Matrix Projection (Translating 3D Coordinates to 2D HTML Screen Elements)
-        const tempV = new THREE.Vector3();
-        function project3DLabelsToScreen() {
+        // 9. Matrix Math Projection (3D Coordinates Map to Responsive 2D Screen Layout)
+        const vectorProjector = new THREE.Vector3();
+        function projectOverlayTexts() {
             trackingObjects.forEach(obj => {
                 if (obj.isGroupChild) {
-                    obj.mesh.getWorldPosition(tempV);
+                    obj.mesh.getWorldPosition(vectorProjector);
                 } else {
-                    tempV.copy(obj.mesh.position);
+                    vectorProjector.copy(obj.mesh.position);
                 }
                 
-                tempV.project(camera);
-                const x = (tempV.x * .5 + .5) * window.innerWidth;
-                const y = (tempV.y * -.5 + .5) * window.innerHeight;
+                vectorProjector.project(camera);
+                const x = (vectorProjector.x * .5 + .5) * window.innerWidth;
+                const y = (vectorProjector.y * -.5 + .5) * window.innerHeight;
                 
-                if(tempV.z < 1 && x >= 0 && x <= window.innerWidth && y >= 0 && y <= window.innerHeight) {
+                // Boundaries safe zone check to prevent rendering objects behind camera frame
+                if(vectorProjector.z < 1 && x >= 0 && x <= window.innerWidth && y >= 0 && y <= window.innerHeight) {
                     obj.dom.style.display = "block";
                     obj.dom.style.left = `${x}px`;
                     obj.dom.style.top = `${y}px`;
@@ -312,32 +363,33 @@
             });
         }
 
-        // Bind Switch Perspective Controls
+        // Interactive Buttons Setup
         const btnRefs = {
             geo: document.getElementById('btn-geo'),
             sun: document.getElementById('btn-sun'),
             polaris: document.getElementById('btn-polaris')
         };
-        function switchView(type) {
-            currentPerspectiveType = type;
+        function updateViewMode(mode) {
+            activePerspectiveMode = mode;
             Object.keys(btnRefs).forEach(k => btnRefs[k].classList.remove('active'));
-            btnRefs[type].classList.add('active');
+            btnRefs[mode].classList.add('active');
         }
-        btnRefs.geo.addEventListener('click', () => switchView('geo'));
-        btnRefs.sun.addEventListener('click', () => switchView('sun'));
-        btnRefs.polaris.addEventListener('click', () => switchView('polaris'));
+        btnRefs.geo.addEventListener('click', () => updateViewMode('geo'));
+        btnRefs.sun.addEventListener('click', () => updateViewMode('sun'));
+        btnRefs.polaris.addEventListener('click', () => updateViewMode('polaris'));
 
-        // 10. Main Execution Loop
-        function mainLoop() {
-            requestAnimationFrame(mainLoop);
-            syncRealtimeClock();
-            earth.rotation.y += 0.0005; // Base axial rotation rotation helper
+        // 10. Frame Tick Loop Engine
+        function animationFrameTick() {
+            requestAnimationFrame(animationFrameTick);
+            updateCosmicClockEngine();
+            earth.rotation.y += 0.0008; // Earth soft continuous rotation
             controls.update();
-            project3DLabelsToScreen();
+            projectOverlayTexts();
             renderer.render(scene, camera);
         }
-        mainLoop();
+        animationFrameTick();
 
+        // Responsive Resizing Handler
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
